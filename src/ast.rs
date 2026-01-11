@@ -168,9 +168,15 @@ impl AstNode {
                 cond: Cond::AnyChar,
                 max_use: None,
             }],
-            Self::CharGroup { is_negated, chars } => {
-                unimplemented!()
-            }
+            Self::CharGroup { is_negated, chars } => vec![Transition {
+                from_state: start_state,
+                to_state: end_state,
+                cond: Cond::CharGroup {
+                    chars: chars.clone(),
+                    is_negated: *is_negated,
+                },
+                max_use: None,
+            }],
         }
     }
 }
@@ -178,7 +184,7 @@ impl AstNode {
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::AstNode, evaluator::Evaluator, token::Token,
+        ast::AstNode, common::str_to_tokens, evaluator::Evaluator, token::Token,
         transition::create_dot_file_from_transitions,
     };
 
@@ -252,14 +258,5 @@ mod test {
         let transitions = root.generate(&mut 2, 0, 1);
         dbg!(&transitions);
         create_dot_file_from_transitions(&transitions);
-    }
-
-    fn str_to_tokens(s: &str) -> Vec<Token> {
-        let mut out = s.chars().map(|c| Token::Char(c)).collect::<Vec<_>>();
-
-        out.insert(0, Token::Start);
-        out.push(Token::End);
-
-        out
     }
 }

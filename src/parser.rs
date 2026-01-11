@@ -37,7 +37,35 @@ impl Parser {
     fn parse_unit(reader: &mut Reader<'_, char>) -> Result<AstNode, Error> {
         match reader.peek() {
             Some(c) => match c {
-                '(' => unimplemented!(),
+                '(' => {
+                    reader.assert_pop('(')?;
+                    let mut alts = vec![];
+
+                    loop {
+                        let alt = Self::parse_sequence(reader, |r| match r.peek() {
+                            Some(')') | None | Some('|') => true,
+                            _ => false,
+                        })?;
+                        alts.push(alt);
+
+                        match reader.peek() {
+                            Some(')') => break,
+                            Some('|') => {
+                                reader.assert_pop('|')?;
+                                continue;
+                            }
+                            other => {
+                                return Err(
+                                    format!("Invalid ending of paren group: {:?}", other).into()
+                                );
+                            }
+                        }
+                    }
+
+                    reader.assert_pop(')')?;
+
+                    Ok(Self::check_modifier(reader, AstNode::Alt(alts))?)
+                }
                 '[' => {
                     reader.assert_pop('[')?;
                     let is_negated = if let Some('^') = reader.peek() {
@@ -114,6 +142,14 @@ impl Parser {
                     node: Box::new(node),
                 })
             }
+            Some('+') => {
+                reader.pop();
+                Ok(AstNode::Repeat {
+                    min: Some(1),
+                    max: None,
+                    node: Box::new(node),
+                })
+            }
             Some('{') => {
                 reader.pop();
                 let min = Some(Self::parse_number(reader)? as usize);
@@ -154,5 +190,6 @@ mod test {
     #[test]
     fn test_parsing() {
         dbg!(Parser::parse_regex_str("^a?.*[^a-f]{1,}$").unwrap());
+        dbg!(Parser::parse_regex_str("x(a|bc|([0-3]|.*))").unwrap());
     }
 }

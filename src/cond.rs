@@ -58,7 +58,7 @@ impl Cond {
             Self::None => MatchResult::MatchNoConsume,
             Self::CharGroup { chars, is_negated } => match c {
                 Some(Token::Char(c)) => {
-                    if chars.contains(c) {
+                    if chars.contains(c) ^ is_negated {
                         MatchResult::MatchAndConsume
                     } else {
                         MatchResult::NoMatch
