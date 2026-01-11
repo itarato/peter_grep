@@ -1,106 +1,7 @@
-use std::{collections::HashSet, fs::File, io::Write};
-
-enum Token {
-    Char(char),
-    Start,
-    End,
-}
-
-enum MatchResult {
-    MatchAndConsume,
-    MatchNoConsume,
-    NoMatch,
-}
+use crate::{cond::Cond, transition::Transition};
 
 #[derive(Debug)]
-enum Cond {
-    Char(char),
-    AnyChar,
-    CharGroup(HashSet<char>),
-    Start,
-    End,
-    None,
-}
-
-impl Cond {
-    fn to_label(&self) -> String {
-        match self {
-            Self::Char(c) => format!("C({})", c),
-            Self::CharGroup(chars) => {
-                format!(
-                    "{}",
-                    chars
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<_>>()
-                        .join("")
-                )
-            }
-            Self::None => "-".to_string(),
-            Self::Start => "^".to_string(),
-            Self::End => "$".to_string(),
-            Self::AnyChar => ".".to_string(),
-        }
-    }
-
-    fn is_match(&self, c: Option<&Token>) -> MatchResult {
-        match self {
-            Self::Char(expected) => match c {
-                Some(Token::Char(c)) => {
-                    if c == expected {
-                        MatchResult::MatchAndConsume
-                    } else {
-                        MatchResult::NoMatch
-                    }
-                }
-                _ => MatchResult::NoMatch,
-            },
-            Self::None => MatchResult::MatchNoConsume,
-            Self::CharGroup(chars) => match c {
-                Some(Token::Char(c)) => {
-                    if chars.contains(c) {
-                        MatchResult::MatchAndConsume
-                    } else {
-                        MatchResult::NoMatch
-                    }
-                }
-                _ => MatchResult::NoMatch,
-            },
-            Self::Start => match c {
-                Some(Token::Start) => MatchResult::MatchAndConsume,
-                _ => MatchResult::NoMatch,
-            },
-            Self::End => match c {
-                Some(Token::End) => MatchResult::MatchAndConsume,
-                _ => MatchResult::NoMatch,
-            },
-            Self::AnyChar => match c {
-                Some(Token::Char(_)) => MatchResult::MatchAndConsume,
-                _ => MatchResult::NoMatch,
-            },
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Transition {
-    from_state: u64,
-    to_state: u64,
-    cond: Cond,
-    max_use: Option<usize>,
-}
-
-impl Transition {
-    fn to_label(&self) -> String {
-        match self.max_use {
-            Some(v) => format!("{} (max {})", self.cond.to_label(), v),
-            None => self.cond.to_label(),
-        }
-    }
-}
-
-#[derive(Debug)]
-enum AstNode {
+pub(crate) enum AstNode {
     Root(Box<AstNode>),
     Char(char),
     Seq(Vec<AstNode>),
@@ -110,10 +11,18 @@ enum AstNode {
         max: Option<usize>,
         node: Box<AstNode>,
     },
+    Start,
+    End,
+    AnyChar,
 }
 
 impl AstNode {
-    fn generate(&self, id_provider: &mut u64, start_state: u64, end_state: u64) -> Vec<Transition> {
+    pub(crate) fn generate(
+        &self,
+        id_provider: &mut u64,
+        start_state: u64,
+        end_state: u64,
+    ) -> Vec<Transition> {
         match self {
             Self::Root(inner) => inner.generate(id_provider, start_state, end_state),
             Self::Char(c) => vec![Transition {
@@ -235,90 +144,34 @@ impl AstNode {
 
                 transitions
             }
+            Self::Start => vec![Transition {
+                from_state: start_state,
+                to_state: end_state,
+                cond: Cond::Start,
+                max_use: None,
+            }],
+            Self::End => vec![Transition {
+                from_state: start_state,
+                to_state: end_state,
+                cond: Cond::End,
+                max_use: None,
+            }],
+            Self::AnyChar => vec![Transition {
+                from_state: start_state,
+                to_state: end_state,
+                cond: Cond::AnyChar,
+                max_use: None,
+            }],
         }
-    }
-}
-
-fn create_dot_file_from_transitions(transitions: &Vec<Transition>) {
-    let mut f = File::create("./state_machine.dot").unwrap();
-
-    f.write_all(b"digraph {{\n").unwrap();
-
-    for tr in transitions {
-        f.write_all(
-            format!(
-                "\t{} -> {} [label=\"{}\"]\n",
-                state_id_to_label(tr.from_state),
-                state_id_to_label(tr.to_state),
-                tr.to_label()
-            )
-            .as_bytes(),
-        )
-        .unwrap();
-    }
-
-    f.write_all(b"}}\n").unwrap();
-}
-
-fn state_id_to_label(id: u64) -> String {
-    match id {
-        0 => "Start".to_string(),
-        1 => "End".to_string(),
-        other => other.to_string(),
-    }
-}
-
-struct Evaluator {
-    transitions: Vec<Transition>,
-}
-
-impl Evaluator {
-    fn new(transitions: Vec<Transition>) -> Self {
-        Self { transitions }
-    }
-
-    fn is_match(&self, chars: &[Token]) -> bool {
-        for offset in 0..chars.len() {
-            let chars = &chars[offset..];
-            let mut stack = vec![(chars, 0u64)];
-
-            while !stack.is_empty() {
-                let (stream, current_state) = stack.pop().unwrap();
-                if current_state == 1 {
-                    return true;
-                }
-
-                let available_transitions = self.get_available_transitions(current_state);
-
-                for tr in available_transitions {
-                    match tr.cond.is_match(stream.get(0)) {
-                        MatchResult::MatchAndConsume => stack.push((&stream[1..], tr.to_state)),
-                        MatchResult::MatchNoConsume => stack.push((stream, tr.to_state)),
-                        MatchResult::NoMatch => {}
-                    }
-                }
-            }
-        }
-
-        false
-    }
-
-    fn get_available_transitions(&self, start_state: u64) -> Vec<&Transition> {
-        let mut transitions = vec![];
-
-        for t in &self.transitions {
-            if t.from_state == start_state {
-                transitions.push(t);
-            }
-        }
-
-        transitions
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::v0::{AstNode, Evaluator, Token, create_dot_file_from_transitions};
+    use crate::{
+        ast::AstNode, evaluator::Evaluator, token::Token,
+        transition::create_dot_file_from_transitions,
+    };
 
     #[test]
     fn test_generation() {

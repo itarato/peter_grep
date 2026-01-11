@@ -1,0 +1,11 @@
+digraph {{
+	Start -> 2 [label="-"]
+	Start -> 2 [label="C(b)"]
+	Start -> 3 [label="C(x)"]
+	3 -> 2 [label="C(y)"]
+	2 -> 5 [label="C(1)"]
+	5 -> 4 [label="C(1)"]
+	2 -> 6 [label="C(2)"]
+	6 -> 4 [label="C(2)"]
+	4 -> End [label="C(c)"]
+}}
