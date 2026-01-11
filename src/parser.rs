@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{ast::AstNode, common::Error, reader::Reader};
 
 pub(crate) struct Parser;
@@ -36,7 +38,43 @@ impl Parser {
         match reader.peek() {
             Some(c) => match c {
                 '(' => unimplemented!(),
-                '[' => unimplemented!(),
+                '[' => {
+                    reader.assert_pop('[')?;
+                    let is_negated = if let Some('^') = reader.peek() {
+                        reader.assert_pop('^')?;
+                        true
+                    } else {
+                        false
+                    };
+
+                    let mut chars = HashSet::new();
+                    loop {
+                        match reader.peek() {
+                            Some(']') => break,
+                            None => return Err("Expected closing brace. Got empty.".into()),
+                            _ => {
+                                let group_char = reader.pop();
+                                if let Some('-') = reader.peek() {
+                                    reader.assert_pop('-')?;
+                                    let until_char = reader.pop();
+
+                                    for ch_u8 in *group_char as u8..=*until_char as u8 {
+                                        chars.insert(ch_u8 as char);
+                                    }
+                                } else {
+                                    chars.insert(*group_char);
+                                }
+                            }
+                        }
+                    }
+
+                    reader.assert_pop(']')?;
+
+                    Ok(Self::check_modifier(
+                        reader,
+                        AstNode::CharGroup { is_negated, chars },
+                    )?)
+                }
                 '^' => {
                     reader.pop();
                     Ok(Self::check_modifier(reader, AstNode::Start)?)
@@ -90,7 +128,7 @@ impl Parser {
                 } else {
                     min
                 };
-                assert_eq!(&'}', reader.pop());
+                reader.assert_pop('}')?;
 
                 Ok(AstNode::Repeat {
                     min,
@@ -115,6 +153,6 @@ mod test {
 
     #[test]
     fn test_parsing() {
-        dbg!(Parser::parse_regex_str("^a?.*c{1,}$").unwrap());
+        dbg!(Parser::parse_regex_str("^a?.*[^a-f]{1,}$").unwrap());
     }
 }

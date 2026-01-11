@@ -1,3 +1,7 @@
+use std::fmt::Debug;
+
+use crate::common::Error;
+
 pub(crate) struct Reader<'a, T> {
     stream: &'a [T],
 }
@@ -33,5 +37,23 @@ impl<'a, T> Reader<'a, T> {
         let out = &self.stream[..len];
         self.stream = &self.stream[len..];
         out
+    }
+
+    pub(crate) fn assert_pop(&mut self, expected: T) -> Result<&'a T, Error>
+    where
+        T: Debug + PartialEq,
+    {
+        let out = &self.stream[0];
+        self.stream = &self.stream[1..];
+
+        if out == &expected {
+            Ok(out)
+        } else {
+            Err(format!(
+                "Unexpected token. Expected <{:?}>, got <{:?}>.",
+                expected, out
+            )
+            .into())
+        }
     }
 }

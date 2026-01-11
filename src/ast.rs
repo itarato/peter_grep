@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use crate::{cond::Cond, transition::Transition};
 
 #[derive(Debug)]
@@ -14,6 +16,10 @@ pub(crate) enum AstNode {
     Start,
     End,
     AnyChar,
+    CharGroup {
+        is_negated: bool,
+        chars: HashSet<char>,
+    },
 }
 
 impl AstNode {
@@ -162,6 +168,9 @@ impl AstNode {
                 cond: Cond::AnyChar,
                 max_use: None,
             }],
+            Self::CharGroup { is_negated, chars } => {
+                unimplemented!()
+            }
         }
     }
 }

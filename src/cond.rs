@@ -12,8 +12,10 @@ pub(crate) enum MatchResult {
 pub(crate) enum Cond {
     Char(char),
     AnyChar,
-    CharGroup(HashSet<char>),
-    NotCharGroup(HashSet<char>),
+    CharGroup {
+        chars: HashSet<char>,
+        is_negated: bool,
+    },
     Start,
     End,
     None,
@@ -23,19 +25,10 @@ impl Cond {
     pub(crate) fn to_label(&self) -> String {
         match self {
             Self::Char(c) => format!("C({})", c),
-            Self::CharGroup(chars) => {
+            Self::CharGroup { chars, is_negated } => {
                 format!(
-                    "[{}]",
-                    chars
-                        .iter()
-                        .map(|c| c.to_string())
-                        .collect::<Vec<_>>()
-                        .join("")
-                )
-            }
-            Self::NotCharGroup(chars) => {
-                format!(
-                    "[^{}]",
+                    "[{}{}]",
+                    if *is_negated { "^" } else { "" },
                     chars
                         .iter()
                         .map(|c| c.to_string())
@@ -63,22 +56,12 @@ impl Cond {
                 _ => MatchResult::NoMatch,
             },
             Self::None => MatchResult::MatchNoConsume,
-            Self::CharGroup(chars) => match c {
+            Self::CharGroup { chars, is_negated } => match c {
                 Some(Token::Char(c)) => {
                     if chars.contains(c) {
                         MatchResult::MatchAndConsume
                     } else {
                         MatchResult::NoMatch
-                    }
-                }
-                _ => MatchResult::NoMatch,
-            },
-            Self::NotCharGroup(chars) => match c {
-                Some(Token::Char(c)) => {
-                    if chars.contains(c) {
-                        MatchResult::NoMatch
-                    } else {
-                        MatchResult::MatchAndConsume
                     }
                 }
                 _ => MatchResult::NoMatch,
