@@ -115,6 +115,21 @@ impl Parser {
                     reader.pop();
                     Ok(Self::check_modifier(reader, AstNode::AnyChar)?)
                 }
+                '\\' => {
+                    reader.pop();
+                    match reader.pop() {
+                        'd' => Ok(Self::check_modifier(
+                            reader,
+                            AstNode::CharGroup {
+                                is_negated: false,
+                                chars: HashSet::from([
+                                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
+                                ]),
+                            },
+                        )?),
+                        other => Err(format!("Unexpected char after slash: {}", other).into()),
+                    }
+                }
                 other => {
                     reader.pop(); // char
                     Ok(Self::check_modifier(reader, AstNode::Char(*other))?)
@@ -191,5 +206,6 @@ mod test {
     fn test_parsing() {
         dbg!(Parser::parse_regex_str("^a?.*[^a-f]{1,}$").unwrap());
         dbg!(Parser::parse_regex_str("x(a|bc|([0-3]|.*))").unwrap());
+        dbg!(Parser::parse_regex_str("\\d+").unwrap());
     }
 }

@@ -1,6 +1,13 @@
-use std::env;
 use std::io;
 use std::process;
+
+use clap::Parser;
+use log::info;
+
+use crate::common::EXIT_CODE_NO_MATCH;
+use crate::common::EXIT_CODE_SUCCESS;
+use crate::common::str_to_tokens;
+use crate::evaluator::Evaluator;
 
 mod ast;
 mod common;
@@ -11,33 +18,29 @@ mod reader;
 mod token;
 mod transition;
 
-fn match_pattern(input_line: &str, pattern: &str) -> bool {
-    if pattern.chars().count() == 1 {
-        input_line.contains(pattern)
-    } else {
-        panic!("Unhandled pattern: {}", pattern)
-    }
+#[derive(clap::Parser)]
+#[command(version, about, long_about = None)]
+struct ProgramArgs {
+    #[arg(short = 'E')]
+    pattern: String,
 }
 
-// Usage: echo <input_text> | your_program.sh -E <pattern>
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    eprintln!("Logs from your program will appear here!");
+    // unsafe { std::env::set_var("RUST_LOG", "debug") };
+    pretty_env_logger::init();
 
-    if env::args().nth(1).unwrap() != "-E" {
-        println!("Expected first argument to be '-E'");
-        process::exit(1);
-    }
+    info!("Peter Grep Starts");
 
-    let pattern = env::args().nth(2).unwrap();
+    let args = ProgramArgs::parse();
+
     let mut input_line = String::new();
-
     io::stdin().read_line(&mut input_line).unwrap();
 
-    // TODO: Uncomment the code below to pass the first stage
-    if match_pattern(&input_line, &pattern) {
-        process::exit(0)
+    let ast_root = crate::parser::Parser::parse_regex_str(&args.pattern).unwrap();
+    let evaluator = Evaluator::new(ast_root.generate(&mut 2, 0, 1));
+    if evaluator.is_match(&str_to_tokens(&input_line)[..]) {
+        process::exit(EXIT_CODE_SUCCESS)
     } else {
-        process::exit(1)
+        process::exit(EXIT_CODE_NO_MATCH)
     }
 }
