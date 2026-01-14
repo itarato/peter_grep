@@ -78,6 +78,10 @@ mod test {
         assert!(!eval_match("^[0-9]+", "d5342ee"));
         assert!(eval_match("^[0-9]+$", "5"));
         assert!(!eval_match("^[0-9]+$", "5f"));
+
+        assert!(eval_match("^\\d+$", "5"));
+        assert!(eval_match("^\\w+$", "f"));
+        assert!(eval_match("^\\w+$", "5cved"));
     }
 
     fn eval_match(pattern: &str, subject: &str) -> bool {

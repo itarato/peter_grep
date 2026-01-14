@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{ast::AstNode, common::Error, reader::Reader};
+use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader};
 
 pub(crate) struct Parser;
 
@@ -86,11 +86,12 @@ impl Parser {
                                     reader.assert_pop('-')?;
                                     let until_char = reader.pop();
 
-                                    for ch_u8 in *group_char as u8..=*until_char as u8 {
-                                        chars.insert(ch_u8 as char);
-                                    }
+                                    chars.insert(Literal::Range {
+                                        start: *group_char,
+                                        end: *until_char,
+                                    });
                                 } else {
-                                    chars.insert(*group_char);
+                                    chars.insert(Literal::Char(*group_char));
                                 }
                             }
                         }
@@ -120,19 +121,21 @@ impl Parser {
                     match reader.pop() {
                         'd' => Ok(Self::check_modifier(
                             reader,
-                            AstNode::CharGroup {
-                                is_negated: false,
-                                chars: HashSet::from([
-                                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-                                ]),
-                            },
+                            AstNode::Char(crate::cond::Literal::Numeric),
+                        )?),
+                        'w' => Ok(Self::check_modifier(
+                            reader,
+                            AstNode::Char(crate::cond::Literal::Alphanumeric),
                         )?),
                         other => Err(format!("Unexpected char after slash: {}", other).into()),
                     }
                 }
                 other => {
                     reader.pop(); // char
-                    Ok(Self::check_modifier(reader, AstNode::Char(*other))?)
+                    Ok(Self::check_modifier(
+                        reader,
+                        AstNode::Char(crate::cond::Literal::Char(*other)),
+                    )?)
                 }
             },
             None => Err("No more input to read".into()),

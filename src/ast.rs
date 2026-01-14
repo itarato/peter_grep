@@ -1,11 +1,14 @@
 use std::collections::HashSet;
 
-use crate::{cond::Cond, transition::Transition};
+use crate::{
+    cond::{Cond, Literal},
+    transition::Transition,
+};
 
 #[derive(Debug)]
 pub(crate) enum AstNode {
     Root(Box<AstNode>),
-    Char(char),
+    Char(Literal),
     Seq(Vec<AstNode>),
     Alt(Vec<AstNode>),
     Repeat {
@@ -18,7 +21,7 @@ pub(crate) enum AstNode {
     AnyChar,
     CharGroup {
         is_negated: bool,
-        chars: HashSet<char>,
+        chars: HashSet<Literal>,
     },
 }
 
@@ -34,7 +37,7 @@ impl AstNode {
             Self::Char(c) => vec![Transition {
                 from_state: start_state,
                 to_state: end_state,
-                cond: Cond::Char(*c),
+                cond: Cond::Char(c.clone()),
                 max_use: None,
             }],
             Self::Seq(seq) => {
@@ -184,7 +187,7 @@ impl AstNode {
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::AstNode, common::str_to_tokens, evaluator::Evaluator, token::Token,
+        ast::AstNode, common::str_to_tokens, cond::Literal, evaluator::Evaluator,
         transition::create_dot_file_from_transitions,
     };
 
@@ -192,15 +195,24 @@ mod test {
     fn test_generation() {
         let root = AstNode::Root(Box::new(AstNode::Seq(vec![
             AstNode::Alt(vec![
-                AstNode::Char('a'),
-                AstNode::Char('b'),
-                AstNode::Seq(vec![AstNode::Char('x'), AstNode::Char('y')]),
+                AstNode::Char(Literal::Char('a')),
+                AstNode::Char(Literal::Char('b')),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('x')),
+                    AstNode::Char(Literal::Char('y')),
+                ]),
             ]),
             AstNode::Alt(vec![
-                AstNode::Seq(vec![AstNode::Char('1'), AstNode::Char('1')]),
-                AstNode::Seq(vec![AstNode::Char('2'), AstNode::Char('2')]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('1')),
+                    AstNode::Char(Literal::Char('1')),
+                ]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('2')),
+                    AstNode::Char(Literal::Char('2')),
+                ]),
             ]),
-            AstNode::Char('c'),
+            AstNode::Char(Literal::Char('c')),
         ])));
 
         let transitions = root.generate(&mut 2, 0, 1);
@@ -213,17 +225,26 @@ mod test {
         let root = AstNode::Root(Box::new(AstNode::Seq(vec![
             AstNode::Alt(vec![
                 AstNode::Seq(vec![
-                    AstNode::Char('x'),
-                    AstNode::Char('x'),
-                    AstNode::Char('1'),
+                    AstNode::Char(Literal::Char('x')),
+                    AstNode::Char(Literal::Char('x')),
+                    AstNode::Char(Literal::Char('1')),
                 ]),
-                AstNode::Seq(vec![AstNode::Char('x'), AstNode::Char('x')]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('x')),
+                    AstNode::Char(Literal::Char('x')),
+                ]),
             ]),
             AstNode::Alt(vec![
-                AstNode::Seq(vec![AstNode::Char('1'), AstNode::Char('1')]),
-                AstNode::Seq(vec![AstNode::Char('2'), AstNode::Char('2')]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('1')),
+                    AstNode::Char(Literal::Char('1')),
+                ]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('2')),
+                    AstNode::Char(Literal::Char('2')),
+                ]),
             ]),
-            AstNode::Char('c'),
+            AstNode::Char(Literal::Char('c')),
         ])));
 
         let transitions = root.generate(&mut 2, 0, 1);
@@ -243,16 +264,25 @@ mod test {
                 AstNode::Repeat {
                     min: Some(0),
                     max: Some(0),
-                    node: Box::new(AstNode::Char('a')),
+                    node: Box::new(AstNode::Char(Literal::Char('a'))),
                 },
-                AstNode::Char('b'),
-                AstNode::Seq(vec![AstNode::Char('x'), AstNode::Char('y')]),
+                AstNode::Char(Literal::Char('b')),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('x')),
+                    AstNode::Char(Literal::Char('y')),
+                ]),
             ]),
             AstNode::Alt(vec![
-                AstNode::Seq(vec![AstNode::Char('1'), AstNode::Char('1')]),
-                AstNode::Seq(vec![AstNode::Char('2'), AstNode::Char('2')]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('1')),
+                    AstNode::Char(Literal::Char('1')),
+                ]),
+                AstNode::Seq(vec![
+                    AstNode::Char(Literal::Char('2')),
+                    AstNode::Char(Literal::Char('2')),
+                ]),
             ]),
-            AstNode::Char('c'),
+            AstNode::Char(Literal::Char('c')),
         ])));
 
         let transitions = root.generate(&mut 2, 0, 1);

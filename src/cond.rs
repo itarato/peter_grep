@@ -8,12 +8,85 @@ pub(crate) enum MatchResult {
     NoMatch,
 }
 
+impl MatchResult {
+    fn is_success(&self) -> bool {
+        match self {
+            Self::MatchAndConsume | Self::MatchNoConsume => true,
+            Self::NoMatch => false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+pub(crate) enum Literal {
+    Char(char),
+    Range { start: char, end: char },
+    Numeric,
+    Alphanumeric,
+}
+
+impl Literal {
+    fn to_label(&self) -> String {
+        match self {
+            Self::Alphanumeric => "\\w".to_string(),
+            Self::Char(c) => c.to_string(),
+            Self::Range { start, end } => format!("{}-{}", start, end),
+            Self::Numeric => "\\d".to_string(),
+        }
+    }
+
+    pub(crate) fn is_match(&self, token: Option<&Token>) -> MatchResult {
+        match self {
+            Self::Alphanumeric => match token {
+                Some(Token::Char(c)) => {
+                    if c.is_ascii_alphanumeric() || c == &'_' {
+                        MatchResult::MatchAndConsume
+                    } else {
+                        MatchResult::NoMatch
+                    }
+                }
+                _ => MatchResult::NoMatch,
+            },
+            Self::Char(c) => match token {
+                Some(Token::Char(tc)) => {
+                    if tc == c {
+                        MatchResult::MatchAndConsume
+                    } else {
+                        MatchResult::NoMatch
+                    }
+                }
+                _ => MatchResult::NoMatch,
+            },
+            Self::Numeric => match token {
+                Some(Token::Char(c)) => {
+                    if c.is_ascii_digit() {
+                        MatchResult::MatchAndConsume
+                    } else {
+                        MatchResult::NoMatch
+                    }
+                }
+                _ => MatchResult::NoMatch,
+            },
+            Self::Range { start, end } => match token {
+                Some(Token::Char(c)) => {
+                    if c >= start && c <= end {
+                        MatchResult::MatchAndConsume
+                    } else {
+                        MatchResult::NoMatch
+                    }
+                }
+                _ => MatchResult::NoMatch,
+            },
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) enum Cond {
-    Char(char),
+    Char(Literal),
     AnyChar,
     CharGroup {
-        chars: HashSet<char>,
+        chars: HashSet<Literal>,
         is_negated: bool,
     },
     Start,
@@ -24,14 +97,14 @@ pub(crate) enum Cond {
 impl Cond {
     pub(crate) fn to_label(&self) -> String {
         match self {
-            Self::Char(c) => format!("C({})", c),
+            Self::Char(t) => t.to_label(),
             Self::CharGroup { chars, is_negated } => {
                 format!(
                     "[{}{}]",
                     if *is_negated { "^" } else { "" },
                     chars
                         .iter()
-                        .map(|c| c.to_string())
+                        .map(|c| c.to_label())
                         .collect::<Vec<_>>()
                         .join("")
                 )
@@ -45,27 +118,15 @@ impl Cond {
 
     pub(crate) fn is_match(&self, c: Option<&Token>) -> MatchResult {
         match self {
-            Self::Char(expected) => match c {
-                Some(Token::Char(c)) => {
-                    if c == expected {
-                        MatchResult::MatchAndConsume
-                    } else {
-                        MatchResult::NoMatch
-                    }
-                }
-                _ => MatchResult::NoMatch,
-            },
+            Self::Char(t) => t.is_match(c),
             Self::None => MatchResult::MatchNoConsume,
-            Self::CharGroup { chars, is_negated } => match c {
-                Some(Token::Char(c)) => {
-                    if chars.contains(c) ^ is_negated {
-                        MatchResult::MatchAndConsume
-                    } else {
-                        MatchResult::NoMatch
-                    }
+            Self::CharGroup { chars, is_negated } => {
+                if chars.iter().any(|group_c| group_c.is_match(c).is_success()) ^ is_negated {
+                    MatchResult::MatchAndConsume
+                } else {
+                    MatchResult::NoMatch
                 }
-                _ => MatchResult::NoMatch,
-            },
+            }
             Self::Start => match c {
                 Some(Token::Start) => MatchResult::MatchAndConsume,
                 _ => MatchResult::NoMatch,
