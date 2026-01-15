@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader};
+use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader, token::Token};
 
 pub(crate) struct Parser;
 
@@ -127,7 +127,10 @@ impl Parser {
                             reader,
                             AstNode::Char(crate::cond::Literal::Alphanumeric),
                         )?),
-                        other => Err(format!("Unexpected char after slash: {}", other).into()),
+                        other => Ok(Self::check_modifier(
+                            reader,
+                            AstNode::Char(Literal::Char(*other)),
+                        )?),
                     }
                 }
                 other => {
