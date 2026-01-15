@@ -120,13 +120,20 @@ impl Cond {
         match self {
             Self::Char(t) => t.is_match(c),
             Self::None => MatchResult::MatchNoConsume,
-            Self::CharGroup { chars, is_negated } => {
-                if chars.iter().any(|group_c| group_c.is_match(c).is_success()) ^ is_negated {
-                    MatchResult::MatchAndConsume
-                } else {
-                    MatchResult::NoMatch
+            Self::CharGroup { chars, is_negated } => match c {
+                Some(Token::Char(c)) => {
+                    if chars
+                        .iter()
+                        .any(|group_c| group_c.is_match(Some(&Token::Char(*c))).is_success())
+                        ^ is_negated
+                    {
+                        MatchResult::MatchAndConsume
+                    } else {
+                        MatchResult::NoMatch
+                    }
                 }
-            }
+                _ => MatchResult::NoMatch,
+            },
             Self::Start => match c {
                 Some(Token::Start) => MatchResult::MatchAndConsume,
                 _ => MatchResult::NoMatch,
