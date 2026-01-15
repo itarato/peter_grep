@@ -133,10 +133,6 @@ impl AstNode {
                     });
                 }
 
-                let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
-                // The actual inside graph.
-                transitions.append(&mut inner_t);
-
                 for _ in 0..req_len {
                     let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
                     // Minimum cycle.
@@ -153,6 +149,10 @@ impl AstNode {
                     cond: Cond::None,
                     max_use: optional_len,
                 });
+
+                let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
+                // The actual inside graph.
+                transitions.append(&mut inner_t);
 
                 // Get to inner end to end.
                 transitions.push(Transition {
