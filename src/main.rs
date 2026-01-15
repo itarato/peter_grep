@@ -23,6 +23,9 @@ mod transition;
 struct ProgramArgs {
     #[arg(short = 'E')]
     pattern: String,
+
+    #[arg(short = 'o', default_value = "false")]
+    only_match: bool,
 }
 
 fn main() {

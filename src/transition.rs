@@ -27,6 +27,7 @@ impl Transition {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn create_dot_file_from_transitions(transitions: &Vec<Transition>) {
     let mut f = File::create("./state_machine.dot").unwrap();
 

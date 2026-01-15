@@ -1,8 +1,10 @@
 digraph {{
 	Start -> 2 [label="-"]
-	2 -> 3 [label="x"]
-	4 -> End [label="-"	5	3 -> 4 [label="x"	7	4 -> 3 [label="- 	6 -> 7 	5}}
- 4 [lab	7 -> 6 [label="- (max 3)"]
+	2 -> 4 [label="-"]
+	4 -> End [label="-"	5 -> 6 [label="x"]
+	7	4 -> 3 [label="- 	6 -> 7 [l}}
+l="x"]
+	7 -> 6 [label="- (max 3)"]
 	2 -> 3 [label="y"]
 	8 -> End [label="-"]
 	3 -> 9 [label="-"]

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader, token::Token};
+use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader};
 
 pub(crate) struct Parser;
 
