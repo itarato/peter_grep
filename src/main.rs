@@ -34,11 +34,23 @@ fn main() {
     let args = ProgramArgs::parse();
 
     let mut input_line = String::new();
-    io::stdin().read_line(&mut input_line).unwrap();
+    let mut has_match = false;
 
-    let ast_root = crate::parser::Parser::parse_regex_str(&args.pattern).unwrap();
-    let evaluator = Evaluator::new(ast_root.generate());
-    if evaluator.is_match(&str_to_tokens(&input_line)[..]) {
+    while let Ok(1..) = io::stdin().read_line(&mut input_line) {
+        let source = input_line.trim_end();
+
+        let ast_root = crate::parser::Parser::parse_regex_str(&args.pattern).unwrap();
+        let evaluator = Evaluator::new(ast_root.generate());
+
+        if evaluator.is_match(&str_to_tokens(source)[..]) {
+            println!("{}", source);
+            has_match = true;
+        }
+
+        input_line.clear();
+    }
+
+    if has_match {
         process::exit(EXIT_CODE_SUCCESS)
     } else {
         process::exit(EXIT_CODE_NO_MATCH)
