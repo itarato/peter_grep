@@ -309,7 +309,8 @@ mod test {
 
     #[test]
     fn test_transition_for_optional() {
-        let ast = Parser::parse_regex_str("x?").unwrap();
+        // let ast = Parser::parse_regex_str("x?").unwrap();
+        let ast = Parser::parse_regex_str("ab{2}a").unwrap();
         create_dot_file_from_transitions(&ast.generate());
     }
 
