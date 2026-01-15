@@ -1,6 +1,26 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::{common::Incrementer, cond::MatchResult, token::Token, transition::Transition};
+use crate::{
+    common::{END_STATE, Incrementer},
+    cond::MatchResult,
+    token::Token,
+    transition::Transition,
+};
+
+pub(crate) enum EvalMatchResult {
+    NoMatch,
+    Match { matches: Vec<(usize, usize)> },
+}
+
+impl EvalMatchResult {
+    #[allow(dead_code)]
+    pub(crate) fn is_match(&self) -> bool {
+        match self {
+            Self::Match { .. } => true,
+            _ => false,
+        }
+    }
+}
 
 pub(crate) struct Evaluator {
     transitions: Vec<Transition>,
@@ -18,19 +38,19 @@ impl Evaluator {
      * - when max-trans end node is reached from a non-max-trans trans - the number is increased
      * - each max-counting is tied to this number
      */
-    pub(crate) fn is_match(&self, chars: &[Token]) -> bool {
-        let mut visit_counter: HashMap<u64, u64> = HashMap::new();
-        let mut id_provider = Incrementer::new();
+    pub(crate) fn is_match(&self, chars: &[Token]) -> EvalMatchResult {
         let loop_start_transitions = self.get_loop_start_transitions();
+        let mut matches = vec![];
 
         for offset in 0..chars.len() {
-            let chars = &chars[offset..];
-            let mut stack = vec![(chars, id_provider.get(), 0u64)];
+            let mut visit_counter: HashMap<u64, u64> = HashMap::new();
+            let mut id_provider = Incrementer::new();
+            let mut stack = vec![(&chars[offset..], id_provider.get(), 0u64)];
 
-            while !stack.is_empty() {
-                let (stream, loop_id, current_state) = stack.pop().unwrap();
-                if current_state == 1 {
-                    return true;
+            while let Some((stream, loop_id, current_state)) = stack.pop() {
+                if current_state == END_STATE {
+                    matches.push((offset, chars.len() - stream.len()));
+                    break;
                 }
 
                 let available_transitions = self.get_available_transitions(current_state);
@@ -71,7 +91,11 @@ impl Evaluator {
             }
         }
 
-        false
+        if matches.is_empty() {
+            EvalMatchResult::NoMatch
+        } else {
+            EvalMatchResult::Match { matches }
+        }
     }
 
     fn get_available_transitions(&self, start_state: u64) -> Vec<&Transition> {
@@ -149,6 +173,6 @@ mod test {
     fn eval_match(pattern: &str, subject: &str) -> bool {
         let ast = Parser::parse_regex_str(pattern).unwrap();
         let e = Evaluator::new(ast.generate());
-        e.is_match(&str_to_tokens(subject)[..])
+        e.is_match(&str_to_tokens(subject)[..]).is_match()
     }
 }

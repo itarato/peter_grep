@@ -7,6 +7,7 @@ use log::info;
 use crate::common::EXIT_CODE_NO_MATCH;
 use crate::common::EXIT_CODE_SUCCESS;
 use crate::common::str_to_tokens;
+use crate::evaluator::EvalMatchResult;
 use crate::evaluator::Evaluator;
 
 mod ast;
@@ -45,9 +46,24 @@ fn main() {
         let ast_root = crate::parser::Parser::parse_regex_str(&args.pattern).unwrap();
         let evaluator = Evaluator::new(ast_root.generate());
 
-        if evaluator.is_match(&str_to_tokens(source)[..]) {
-            println!("{}", source);
-            has_match = true;
+        match evaluator.is_match(&str_to_tokens(source)[..]) {
+            EvalMatchResult::Match { matches } => {
+                if args.only_match {
+                    for (start, end) in matches {
+                        let start = if start == 0 { 0 } else { start - 1 }; // Compensate for <start> token.
+                        let end = if end >= source.len() {
+                            source.len()
+                        } else {
+                            end - 1
+                        }; // Compensate for <start> and <end> tokens.
+                        println!("{}", &source[start..end]);
+                    }
+                } else {
+                    println!("{}", source);
+                }
+                has_match = true;
+            }
+            EvalMatchResult::NoMatch => {}
         }
 
         input_line.clear();

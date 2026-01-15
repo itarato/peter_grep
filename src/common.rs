@@ -3,6 +3,9 @@ use crate::token::Token;
 pub(crate) const EXIT_CODE_SUCCESS: i32 = 0;
 pub(crate) const EXIT_CODE_NO_MATCH: i32 = 1;
 
+pub(crate) const START_STATE: u64 = 0;
+pub(crate) const END_STATE: u64 = 1;
+
 pub(crate) type Error = Box<dyn std::error::Error + Send + Sync>;
 
 pub(crate) fn str_to_tokens(s: &str) -> Vec<Token> {

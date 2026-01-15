@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use crate::{
+    common::{END_STATE, START_STATE},
     cond::{Cond, Literal},
     transition::Transition,
 };
@@ -27,7 +28,7 @@ pub(crate) enum AstNode {
 
 impl AstNode {
     pub(crate) fn generate(&self) -> Vec<Transition> {
-        self.__generate(&mut 2, 0, 1)
+        self.__generate(&mut (END_STATE + 1), START_STATE, END_STATE)
     }
 
     fn __generate(
@@ -256,9 +257,9 @@ mod test {
         // create_dot_file_from_transitions(&transitions);
 
         let evaluator = Evaluator::new(transitions);
-        assert!(evaluator.is_match(&str_to_tokens("xx11c")[..]));
-        assert!(evaluator.is_match(&str_to_tokens("__xx11c")[..]));
-        assert!(!evaluator.is_match(&str_to_tokens("__xx11")[..]));
+        assert!(evaluator.is_match(&str_to_tokens("xx11c")[..]).is_match());
+        assert!(evaluator.is_match(&str_to_tokens("__xx11c")[..]).is_match());
+        assert!(!evaluator.is_match(&str_to_tokens("__xx11")[..]).is_match());
     }
 
     #[test]
