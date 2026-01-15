@@ -37,7 +37,7 @@ fn main() {
     io::stdin().read_line(&mut input_line).unwrap();
 
     let ast_root = crate::parser::Parser::parse_regex_str(&args.pattern).unwrap();
-    let evaluator = Evaluator::new(ast_root.generate(&mut 2, 0, 1));
+    let evaluator = Evaluator::new(ast_root.generate());
     if evaluator.is_match(&str_to_tokens(&input_line)[..]) {
         process::exit(EXIT_CODE_SUCCESS)
     } else {

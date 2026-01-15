@@ -148,7 +148,7 @@ mod test {
 
     fn eval_match(pattern: &str, subject: &str) -> bool {
         let ast = Parser::parse_regex_str(pattern).unwrap();
-        let e = Evaluator::new(ast.generate(&mut 2, 0, 1));
+        let e = Evaluator::new(ast.generate());
         e.is_match(&str_to_tokens(subject)[..])
     }
 }

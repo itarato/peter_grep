@@ -26,14 +26,18 @@ pub(crate) enum AstNode {
 }
 
 impl AstNode {
-    pub(crate) fn generate(
+    pub(crate) fn generate(&self) -> Vec<Transition> {
+        self.__generate(&mut 2, 0, 1)
+    }
+
+    fn __generate(
         &self,
         id_provider: &mut u64,
         start_state: u64,
         end_state: u64,
     ) -> Vec<Transition> {
         match self {
-            Self::Root(inner) => inner.generate(id_provider, start_state, end_state),
+            Self::Root(inner) => inner.__generate(id_provider, start_state, end_state),
             Self::Char(c) => vec![Transition {
                 from_state: start_state,
                 to_state: end_state,
@@ -60,7 +64,7 @@ impl AstNode {
                             *id_provider - 1
                         };
 
-                        let mut seq_transitions = seq[i].generate(id_provider, from_id, to_id);
+                        let mut seq_transitions = seq[i].__generate(id_provider, from_id, to_id);
                         transitions.append(&mut seq_transitions);
 
                         from_id = to_id;
@@ -73,7 +77,7 @@ impl AstNode {
                 let mut transitions = vec![];
 
                 for alt in alts {
-                    let mut alt_transitions = alt.generate(id_provider, start_state, end_state);
+                    let mut alt_transitions = alt.__generate(id_provider, start_state, end_state);
                     transitions.append(&mut alt_transitions);
                 }
 
@@ -127,7 +131,7 @@ impl AstNode {
                 }
 
                 for _ in 0..req_len {
-                    let mut inner_t = node.generate(id_provider, inner_start, inner_end);
+                    let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
                     transitions.append(&mut inner_t);
                     inner_start = inner_end;
                     inner_end = *id_provider;
@@ -141,7 +145,7 @@ impl AstNode {
                     max_use: None,
                 });
 
-                let mut inner_t = node.generate(id_provider, inner_start, inner_end);
+                let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
                 transitions.append(&mut inner_t);
 
                 transitions.push(Transition {
@@ -215,7 +219,7 @@ mod test {
             AstNode::Char(Literal::Char('c')),
         ])));
 
-        let transitions = root.generate(&mut 2, 0, 1);
+        let transitions = root.generate();
         dbg!(&transitions);
         // create_dot_file_from_transitions(&transitions);
     }
@@ -247,7 +251,7 @@ mod test {
             AstNode::Char(Literal::Char('c')),
         ])));
 
-        let transitions = root.generate(&mut 2, 0, 1);
+        let transitions = root.generate();
         dbg!(&transitions);
         // create_dot_file_from_transitions(&transitions);
 
@@ -285,7 +289,7 @@ mod test {
             AstNode::Char(Literal::Char('c')),
         ])));
 
-        let transitions = root.generate(&mut 2, 0, 1);
+        let transitions = root.generate();
         dbg!(&transitions);
         create_dot_file_from_transitions(&transitions);
     }
@@ -293,7 +297,7 @@ mod test {
     #[test]
     fn test_transition_for_loop() {
         let ast = Parser::parse_regex_str("x{2}").unwrap();
-        create_dot_file_from_transitions(&ast.generate(&mut 2, 0, 1));
+        create_dot_file_from_transitions(&ast.generate());
     }
 
     #[test]
@@ -301,7 +305,7 @@ mod test {
         create_dot_file_from_transitions(
             &Parser::parse_regex_str("(x{3,6}|y){2,4}")
                 .unwrap()
-                .generate(&mut 2, 0, 1),
+                .generate(),
         );
     }
 }
