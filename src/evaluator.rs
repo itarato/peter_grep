@@ -1,4 +1,6 @@
-use crate::{cond::MatchResult, token::Token, transition::Transition};
+use std::collections::{HashMap, HashSet};
+
+use crate::{common::Incrementer, cond::MatchResult, token::Token, transition::Transition};
 
 pub(crate) struct Evaluator {
     transitions: Vec<Transition>,
@@ -9,13 +11,24 @@ impl Evaluator {
         Self { transitions }
     }
 
+    /**
+     * Max-transition tracking idea:
+     * - centrally managed by the evaluator -> use a hash map or something
+     * - each journey gets an increasing number
+     * - when max-trans end node is reached from a non-max-trans trans - the number is increased
+     * - each max-counting is tied to this number
+     */
     pub(crate) fn is_match(&self, chars: &[Token]) -> bool {
+        let mut visit_counter: HashMap<u64, u64> = HashMap::new();
+        let mut id_provider = Incrementer::new();
+        let loop_start_transitions = self.get_loop_start_transitions();
+
         for offset in 0..chars.len() {
             let chars = &chars[offset..];
-            let mut stack = vec![(chars, 0u64)];
+            let mut stack = vec![(chars, id_provider.get(), 0u64)];
 
             while !stack.is_empty() {
-                let (stream, current_state) = stack.pop().unwrap();
+                let (stream, loop_id, current_state) = stack.pop().unwrap();
                 if current_state == 1 {
                     return true;
                 }
@@ -23,9 +36,35 @@ impl Evaluator {
                 let available_transitions = self.get_available_transitions(current_state);
 
                 for tr in available_transitions {
+                    // Start a new loop_id when starts a loop.
+                    let loop_id = if loop_start_transitions.contains(&(tr.from_state, tr.to_state))
+                    {
+                        id_provider.get()
+                    } else {
+                        loop_id
+                    };
+
+                    // Block if already reached max use.
+                    if let Some(max_use) = tr.max_use {
+                        let current_use = visit_counter.get(&current_state).unwrap_or(&0);
+                        if current_use >= &max_use {
+                            continue;
+                        }
+                    }
+
                     match tr.cond.is_match(stream.get(0)) {
-                        MatchResult::MatchAndConsume => stack.push((&stream[1..], tr.to_state)),
-                        MatchResult::MatchNoConsume => stack.push((stream, tr.to_state)),
+                        MatchResult::MatchAndConsume => {
+                            if tr.max_use.is_some() {
+                                *visit_counter.entry(current_state).or_default() += 1;
+                            }
+                            stack.push((&stream[1..], loop_id, tr.to_state));
+                        }
+                        MatchResult::MatchNoConsume => {
+                            if tr.max_use.is_some() {
+                                *visit_counter.entry(current_state).or_default() += 1;
+                            }
+                            stack.push((stream, loop_id, tr.to_state));
+                        }
                         MatchResult::NoMatch => {}
                     }
                 }
@@ -45,6 +84,24 @@ impl Evaluator {
         }
 
         transitions
+    }
+
+    fn get_loop_start_transitions(&self) -> HashSet<(u64, u64)> {
+        let mut loop_start_states = HashSet::new();
+        for tr in &self.transitions {
+            if tr.max_use.is_some() {
+                loop_start_states.insert(tr.from_state);
+            }
+        }
+
+        let mut loop_start_transitions = HashSet::new();
+        for tr in &self.transitions {
+            if tr.max_use.is_none() && loop_start_states.contains(&tr.to_state) {
+                loop_start_transitions.insert((tr.from_state, tr.to_state));
+            }
+        }
+
+        loop_start_transitions
     }
 }
 
@@ -82,6 +139,11 @@ mod test {
         assert!(eval_match("^\\d+$", "5"));
         assert!(eval_match("^\\w+$", "f"));
         assert!(eval_match("^\\w+$", "5cved"));
+
+        assert!(eval_match("^x{2}$", "xx"));
+        assert!(!eval_match("^x{2}$", "x"));
+        assert!(!eval_match("^x{2}$", "xxx"));
+        assert!(eval_match("^x{2,4}$", "xxx"));
     }
 
     fn eval_match(pattern: &str, subject: &str) -> bool {

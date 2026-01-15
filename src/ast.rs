@@ -12,8 +12,8 @@ pub(crate) enum AstNode {
     Seq(Vec<AstNode>),
     Alt(Vec<AstNode>),
     Repeat {
-        min: Option<usize>,
-        max: Option<usize>,
+        min: Option<u64>,
+        max: Option<u64>,
         node: Box<AstNode>,
     },
     Start,
@@ -187,7 +187,7 @@ impl AstNode {
 #[cfg(test)]
 mod test {
     use crate::{
-        ast::AstNode, common::str_to_tokens, cond::Literal, evaluator::Evaluator,
+        ast::AstNode, common::str_to_tokens, cond::Literal, evaluator::Evaluator, parser::Parser,
         transition::create_dot_file_from_transitions,
     };
 
@@ -288,5 +288,20 @@ mod test {
         let transitions = root.generate(&mut 2, 0, 1);
         dbg!(&transitions);
         create_dot_file_from_transitions(&transitions);
+    }
+
+    #[test]
+    fn test_transition_for_loop() {
+        let ast = Parser::parse_regex_str("x{2}").unwrap();
+        create_dot_file_from_transitions(&ast.generate(&mut 2, 0, 1));
+    }
+
+    #[test]
+    fn test_nested_repeat() {
+        create_dot_file_from_transitions(
+            &Parser::parse_regex_str("(x{3,6}|y){2,4}")
+                .unwrap()
+                .generate(&mut 2, 0, 1),
+        );
     }
 }

@@ -170,14 +170,14 @@ impl Parser {
             }
             Some('{') => {
                 reader.pop();
-                let min = Some(Self::parse_number(reader)? as usize);
+                let min = Some(Self::parse_number(reader)?);
                 let max = if let Some(',') = reader.peek() {
                     reader.pop(); // comma
 
                     if let Some('}') = reader.peek() {
                         None
                     } else {
-                        Some(Self::parse_number(reader)? as usize)
+                        Some(Self::parse_number(reader)?)
                     }
                 } else {
                     min

@@ -15,7 +15,7 @@ pub(crate) struct Transition {
     pub(crate) from_state: u64,
     pub(crate) to_state: u64,
     pub(crate) cond: Cond,
-    pub(crate) max_use: Option<usize>,
+    pub(crate) max_use: Option<u64>,
 }
 
 impl Transition {
