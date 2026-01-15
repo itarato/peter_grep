@@ -51,7 +51,7 @@ fn main() {
                 if args.only_match {
                     for (start, end) in matches {
                         let start = if start == 0 { 0 } else { start - 1 }; // Compensate for <start> token.
-                        let end = if end >= source.len() {
+                        let end = if end > source.len() {
                             source.len()
                         } else {
                             end - 1

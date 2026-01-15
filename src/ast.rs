@@ -115,6 +115,7 @@ impl AstNode {
                 let mut inner_end = *id_provider;
                 *id_provider += 1;
 
+                // Get to the inner start.
                 transitions.push(Transition {
                     from_state: start_state,
                     to_state: inner_start,
@@ -123,6 +124,7 @@ impl AstNode {
                 });
 
                 if min == 0 {
+                    // Skip - when 0 iter is allowed.
                     transitions.push(Transition {
                         from_state: start_state,
                         to_state: end_state,
@@ -131,29 +133,33 @@ impl AstNode {
                     });
                 }
 
+                let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
+                // The actual inside graph.
+                transitions.append(&mut inner_t);
+
                 for _ in 0..req_len {
                     let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
+                    // Minimum cycle.
                     transitions.append(&mut inner_t);
                     inner_start = inner_end;
                     inner_end = *id_provider;
                     *id_provider += 1;
                 }
 
-                transitions.push(Transition {
-                    from_state: inner_end,
-                    to_state: end_state,
-                    cond: Cond::None,
-                    max_use: None,
-                });
-
-                let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
-                transitions.append(&mut inner_t);
-
+                // Repeat transition.
                 transitions.push(Transition {
                     from_state: inner_end,
                     to_state: inner_start,
                     cond: Cond::None,
                     max_use: optional_len,
+                });
+
+                // Get to inner end to end.
+                transitions.push(Transition {
+                    from_state: inner_end,
+                    to_state: end_state,
+                    cond: Cond::None,
+                    max_use: None,
                 });
 
                 transitions
@@ -298,6 +304,12 @@ mod test {
     #[test]
     fn test_transition_for_loop() {
         let ast = Parser::parse_regex_str("x{2}").unwrap();
+        create_dot_file_from_transitions(&ast.generate());
+    }
+
+    #[test]
+    fn test_transition_for_optional() {
+        let ast = Parser::parse_regex_str("x?").unwrap();
         create_dot_file_from_transitions(&ast.generate());
     }
 

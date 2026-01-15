@@ -33,12 +33,13 @@ pub(crate) fn create_dot_file_from_transitions(transitions: &Vec<Transition>) {
 
     f.write_all(b"digraph {{\n").unwrap();
 
-    for tr in transitions {
+    for (i, tr) in transitions.iter().enumerate() {
         f.write_all(
             format!(
-                "\t{} -> {} [label=\"{}\"]\n",
+                "\t{} -> {} [label=\"#{}\n{}\"]\n",
                 state_id_to_label(tr.from_state),
                 state_id_to_label(tr.to_state),
+                i,
                 tr.to_label()
             )
             .as_bytes(),
