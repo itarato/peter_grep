@@ -59,7 +59,7 @@ impl Evaluator {
                 let available_transitions = self.get_available_transitions(current_state);
 
                 for tr in available_transitions.iter().rev() {
-                    // Start a new loop_id when starts a loop.
+                    // Increase loop_id when starts a loop.
                     let loop_id = if loop_start_transitions.contains(&(tr.from_state, tr.to_state))
                     {
                         id_provider.get()

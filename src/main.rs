@@ -36,6 +36,8 @@ enum ColorArg {
 #[derive(clap::Parser)]
 #[command(version, about, long_about = None)]
 struct ProgramArgs {
+    filepath: Option<String>,
+
     #[arg(short = 'E')]
     pattern: String,
 
