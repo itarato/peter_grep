@@ -1,3 +1,5 @@
+extern crate isatty;
+
 use std::io;
 use std::process;
 
@@ -12,6 +14,8 @@ use crate::common::range_start_adjust;
 use crate::common::str_to_tokens;
 use crate::evaluator::EvalMatchResult;
 use crate::evaluator::Evaluator;
+
+use isatty::stdout_isatty;
 
 mod ast;
 mod common;
@@ -42,6 +46,16 @@ struct ProgramArgs {
     color: ColorArg,
 }
 
+impl ProgramArgs {
+    fn is_color(&self) -> bool {
+        match self.color {
+            ColorArg::Always => true,
+            ColorArg::Never => false,
+            ColorArg::Auto => stdout_isatty(),
+        }
+    }
+}
+
 fn main() {
     // unsafe { std::env::set_var("RUST_LOG", "debug") };
     pretty_env_logger::init();
@@ -68,7 +82,7 @@ fn main() {
                         println!("{}", &source[start..end]);
                     }
                 } else {
-                    if args.color == ColorArg::Always {
+                    if args.is_color() {
                         let merged_ranges = merge_overlapping_match_ranges(&matches);
 
                         let mut merge_iter = merged_ranges.iter();
