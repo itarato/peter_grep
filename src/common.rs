@@ -49,10 +49,12 @@ pub(crate) fn merge_overlapping_match_ranges(ranges: &Vec<(usize, usize)>) -> Ve
     out
 }
 
+// Compensate for <start> token.
 pub(crate) fn range_start_adjust(start: usize) -> usize {
     if start == 0 { 0 } else { start - 1 }
 }
 
+// Compensate for <start> and <end> tokens.
 pub(crate) fn range_end_adjust(end: usize, len: usize) -> usize {
     if end > len {
         len

@@ -77,8 +77,8 @@ fn main() {
             EvalMatchResult::Match { matches } => {
                 if args.only_match {
                     for (start, end) in matches {
-                        let start = range_start_adjust(start); // Compensate for <start> token.
-                        let end = range_end_adjust(end, source.len()); // Compensate for <start> and <end> tokens.
+                        let start = range_start_adjust(start);
+                        let end = range_end_adjust(end, source.len());
                         println!("{}", &source[start..end]);
                     }
                 } else {
