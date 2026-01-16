@@ -31,3 +31,34 @@ impl Incrementer {
         self.v - 1
     }
 }
+
+pub(crate) fn merge_overlapping_match_ranges(ranges: &Vec<(usize, usize)>) -> Vec<(usize, usize)> {
+    let mut ranges = ranges.clone();
+    ranges.sort();
+
+    let mut out: Vec<(usize, usize)> = vec![];
+
+    for (start, end) in ranges {
+        if out.is_empty() || out.last().unwrap().1 < start {
+            out.push((start, end));
+        } else {
+            out.last_mut().unwrap().1 = end;
+        }
+    }
+
+    out
+}
+
+pub(crate) fn range_start_adjust(start: usize) -> usize {
+    if start == 0 { 0 } else { start - 1 }
+}
+
+pub(crate) fn range_end_adjust(end: usize, len: usize) -> usize {
+    if end > len {
+        len
+    } else if end >= 1 {
+        end - 1
+    } else {
+        end
+    }
+}
