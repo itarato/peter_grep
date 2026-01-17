@@ -44,7 +44,7 @@ impl Evaluator {
 
         let mut offset = 0;
 
-        while offset < chars.len() {
+        'main_loop: while offset < chars.len() {
             let mut visit_counter: HashMap<u64, u64> = HashMap::new();
             let mut id_provider = Incrementer::new();
             let mut stack = vec![(&chars[offset..], id_provider.get(), 0u64)];
@@ -52,8 +52,9 @@ impl Evaluator {
             while let Some((stream, loop_id, current_state)) = stack.pop() {
                 if current_state == END_STATE {
                     matches.push((offset, chars.len() - stream.len()));
-                    offset = chars.len() - stream.len() - 1;
-                    break;
+                    // `max(offset + 1)` ensures the scanner is not stuck with valid empty matches.
+                    offset = (chars.len() - stream.len()).max(offset + 1);
+                    continue 'main_loop;
                 }
 
                 let available_transitions = self.get_available_transitions(current_state);
