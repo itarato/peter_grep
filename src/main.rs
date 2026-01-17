@@ -85,6 +85,7 @@ enum InputIterator {
         file_names: VecDeque<String>,
         active_file_lines: VecDeque<String>,
         current_file_path: Option<String>,
+        should_return_current_file_path: bool,
     },
 }
 
@@ -98,6 +99,7 @@ impl InputIterator {
             file_names: file_names.clone().into(),
             active_file_lines: VecDeque::new(),
             current_file_path: None,
+            should_return_current_file_path: file_names.len() > 1,
         }
     }
 
@@ -123,10 +125,13 @@ impl InputIterator {
             }
         }
 
+        let should_return_current_file_path = file_names.len() > 1;
+
         Self::Files {
             file_names,
             active_file_lines: VecDeque::new(),
             current_file_path: None,
+            should_return_current_file_path,
         }
     }
 }
@@ -151,6 +156,7 @@ impl Iterator for InputIterator {
                 file_names,
                 active_file_lines,
                 current_file_path,
+                should_return_current_file_path,
             } => {
                 if active_file_lines.is_empty() {
                     loop {
@@ -173,7 +179,14 @@ impl Iterator for InputIterator {
                 }
 
                 match active_file_lines.pop_front() {
-                    Some(line) => Some((line, current_file_path.clone())),
+                    Some(line) => Some((
+                        line,
+                        if *should_return_current_file_path {
+                            current_file_path.clone()
+                        } else {
+                            None
+                        },
+                    )),
                     None => None,
                 }
             }
@@ -197,6 +210,10 @@ fn main() {
 
         match evaluator.is_match(&str_to_tokens(&line)[..]) {
             EvalMatchResult::Match { matches } => {
+                if let Some(source) = source {
+                    print!("{}:", source);
+                }
+
                 if args.only_match {
                     for (start, end) in matches {
                         let start = range_start_adjust(start);
@@ -209,10 +226,6 @@ fn main() {
 
                         let mut merge_iter = merged_ranges.iter();
                         let mut previous_range = merge_iter.next().unwrap();
-
-                        if let Some(source) = source {
-                            print!("{}:", source);
-                        }
 
                         print!("{}", &line[..range_start_adjust(previous_range.0)]);
                         print!(
