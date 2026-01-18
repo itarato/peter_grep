@@ -91,6 +91,7 @@ pub(crate) enum Cond {
     Start,
     End,
     None,
+    CaptureRef(u64),
 }
 
 impl Cond {
@@ -112,6 +113,7 @@ impl Cond {
             Self::Start => "^".to_string(),
             Self::End => "$".to_string(),
             Self::AnyChar => ".".to_string(),
+            Self::CaptureRef(id) => format!("ref{}", id),
         }
     }
 
@@ -145,6 +147,7 @@ impl Cond {
                 Some(Token::Char(_)) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
+            Self::CaptureRef(id) => MatchResult::NoMatch,
         }
     }
 }

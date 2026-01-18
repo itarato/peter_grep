@@ -27,6 +27,7 @@ pub(crate) enum AstNode {
         is_negated: bool,
         chars: HashSet<Literal>,
     },
+    CaptureRef(u64),
 }
 
 impl AstNode {
@@ -169,6 +170,11 @@ impl AstNode {
                     is_negated: *is_negated,
                 },
             )],
+            Self::CaptureRef(id) => vec![Transition::new_cond(
+                start_state,
+                end_state,
+                Cond::CaptureRef(*id),
+            )],
         }
     }
 }
@@ -309,7 +315,8 @@ mod test {
         // let ast = Parser::parse_regex_str("ab{2}a").unwrap();
         // let ast = Parser::parse_regex_str("a*").unwrap();
         // let ast = Parser::parse_regex_str("a(x|(y|z))b").unwrap();
-        let ast = Parser::parse_regex_str("(\\d+)").unwrap();
+        // let ast = Parser::parse_regex_str("(\\d+)").unwrap();
+        let ast = Parser::parse_regex_str("(cat|dog) and \\1").unwrap();
         create_dot_file_from_transitions(&ast.generate());
     }
 

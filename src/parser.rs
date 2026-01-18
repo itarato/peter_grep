@@ -137,19 +137,39 @@ impl Parser {
                 }
                 '\\' => {
                     reader.pop();
-                    match reader.pop() {
-                        'd' => Ok(Self::check_modifier(
-                            reader,
-                            AstNode::Char(crate::cond::Literal::Numeric),
-                        )?),
-                        'w' => Ok(Self::check_modifier(
-                            reader,
-                            AstNode::Char(crate::cond::Literal::Alphanumeric),
-                        )?),
-                        other => Ok(Self::check_modifier(
-                            reader,
-                            AstNode::Char(Literal::Char(*other)),
-                        )?),
+                    match reader.peek() {
+                        Some(peeked_c) => match peeked_c {
+                            'd' => {
+                                reader.pop();
+                                Ok(Self::check_modifier(
+                                    reader,
+                                    AstNode::Char(crate::cond::Literal::Numeric),
+                                )?)
+                            }
+                            'w' => {
+                                reader.pop();
+                                Ok(Self::check_modifier(
+                                    reader,
+                                    AstNode::Char(crate::cond::Literal::Alphanumeric),
+                                )?)
+                            }
+                            '1'..'9' => {
+                                let id_raw = reader.parse_while(|c| c.is_ascii_digit());
+                                dbg!(id_raw);
+                                let id =
+                                    u64::from_str_radix(&id_raw.iter().collect::<String>(), 10)
+                                        .unwrap();
+                                Ok(Self::check_modifier(reader, AstNode::CaptureRef(id))?)
+                            }
+                            other => {
+                                reader.pop();
+                                Ok(Self::check_modifier(
+                                    reader,
+                                    AstNode::Char(Literal::Char(*other)),
+                                )?)
+                            }
+                        },
+                        None => panic!("Missing char after \\"),
                     }
                 }
                 other => {
