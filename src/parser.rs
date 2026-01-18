@@ -155,7 +155,6 @@ impl Parser {
                             }
                             '1'..'9' => {
                                 let id_raw = reader.parse_while(|c| c.is_ascii_digit());
-                                dbg!(id_raw);
                                 let id =
                                     u64::from_str_radix(&id_raw.iter().collect::<String>(), 10)
                                         .unwrap();

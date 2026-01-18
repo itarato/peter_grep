@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::token::Token;
 
@@ -117,11 +117,15 @@ impl Cond {
         }
     }
 
-    pub(crate) fn is_match(&self, c: Option<&Token>) -> MatchResult {
+    pub(crate) fn is_match(
+        &self,
+        tokens: &[Token],
+        captures: &HashMap<u64, String>,
+    ) -> MatchResult {
         match self {
-            Self::Char(t) => t.is_match(c),
+            Self::Char(t) => t.is_match(tokens.first()),
             Self::None => MatchResult::Match(0),
-            Self::CharGroup { chars, is_negated } => match c {
+            Self::CharGroup { chars, is_negated } => match tokens.first() {
                 Some(Token::Char(c)) => {
                     if chars
                         .iter()
@@ -135,19 +139,39 @@ impl Cond {
                 }
                 _ => MatchResult::NoMatch,
             },
-            Self::Start => match c {
+            Self::Start => match tokens.first() {
                 Some(Token::Start) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
-            Self::End => match c {
+            Self::End => match tokens.first() {
                 Some(Token::End) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
-            Self::AnyChar => match c {
+            Self::AnyChar => match tokens.first() {
                 Some(Token::Char(_)) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
-            Self::CaptureRef(id) => MatchResult::NoMatch,
+            Self::CaptureRef(id) => match captures.get(id) {
+                Some(capture) => {
+                    if tokens.len() < capture.len() {
+                        MatchResult::NoMatch
+                    } else {
+                        for (capture_c, token) in capture.chars().zip(tokens) {
+                            match token {
+                                Token::Char(token_c) => {
+                                    if token_c != &capture_c {
+                                        return MatchResult::NoMatch;
+                                    }
+                                }
+                                _ => return MatchResult::NoMatch,
+                            }
+                        }
+
+                        MatchResult::Match(capture.len())
+                    }
+                }
+                None => MatchResult::NoMatch,
+            },
         }
     }
 }

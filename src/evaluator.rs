@@ -77,7 +77,7 @@ impl Evaluator {
                         }
                     }
 
-                    match tr.cond.is_match(stream.get(0)) {
+                    match tr.cond.is_match(stream, &capturer.captures) {
                         MatchResult::Match(step) => {
                             if tr.max_use.is_some() {
                                 *visit_counter.entry(current_state).or_default() += 1;

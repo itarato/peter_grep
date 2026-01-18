@@ -4,7 +4,7 @@ use crate::token::Token;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Capturer {
-    captures: HashMap<u64, String>,
+    pub(crate) captures: HashMap<u64, String>,
     currents: Vec<u64>,
 }
 
