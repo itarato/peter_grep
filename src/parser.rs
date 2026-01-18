@@ -2,6 +2,7 @@ use std::collections::HashSet;
 
 use crate::{
     ast::AstNode,
+    capturer,
     common::{Error, Incrementer},
     cond::Literal,
     reader::Reader,
@@ -45,20 +46,22 @@ impl Parser {
 
     fn parse_unit(
         reader: &mut Reader<'_, char>,
-        capture_group_id: &mut Incrementer,
+        capture_id_provider: &mut Incrementer,
     ) -> Result<AstNode, Error> {
         match reader.peek() {
             Some(c) => match c {
                 '(' => {
+                    let capture_id = capture_id_provider.get();
                     reader.assert_pop('(')?;
                     let mut options = vec![];
 
                     loop {
-                        let alt =
-                            Self::parse_sequence(reader, capture_group_id, |r| match r.peek() {
+                        let alt = Self::parse_sequence(reader, capture_id_provider, |r| {
+                            match r.peek() {
                                 Some(')') | None | Some('|') => true,
                                 _ => false,
-                            })?;
+                            }
+                        })?;
                         options.push(alt);
 
                         match reader.peek() {
@@ -81,7 +84,7 @@ impl Parser {
                         reader,
                         AstNode::Alt {
                             options,
-                            id: capture_group_id.get(),
+                            id: capture_id,
                         },
                     )?)
                 }

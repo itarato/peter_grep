@@ -17,6 +17,16 @@ pub(crate) enum CaptureGroupInstruction {
     None,
 }
 
+impl CaptureGroupInstruction {
+    pub(crate) fn to_label(&self) -> String {
+        match self {
+            Self::Start(id) => format!("CapS[{}]", id),
+            Self::End(id) => format!("CapE[{}]", id),
+            Self::None => String::new(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct Transition {
     pub(crate) from_state: u64,
@@ -64,10 +74,18 @@ impl Transition {
     }
 
     fn to_label(&self) -> String {
-        match self.max_use {
-            Some(v) => format!("{} (max {})", self.cond.to_label(), v),
-            None => self.cond.to_label(),
+        let mut parts: Vec<String> = vec![self.cond.to_label()];
+
+        if let Some(v) = self.max_use {
+            parts.push(format!("(max {})", v));
         }
+
+        let capture_part = self.capture_group_ins.to_label();
+        if !capture_part.is_empty() {
+            parts.push(capture_part);
+        }
+
+        parts.join(" ")
     }
 }
 

@@ -316,7 +316,7 @@ mod test {
         // let ast = Parser::parse_regex_str("a*").unwrap();
         // let ast = Parser::parse_regex_str("a(x|(y|z))b").unwrap();
         // let ast = Parser::parse_regex_str("(\\d+)").unwrap();
-        let ast = Parser::parse_regex_str("(cat|dog) and \\1").unwrap();
+        let ast = Parser::parse_regex_str("(([a-z])x) is \\1").unwrap();
         create_dot_file_from_transitions(&ast.generate());
     }
 
