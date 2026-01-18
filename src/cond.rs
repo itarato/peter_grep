@@ -3,15 +3,14 @@ use std::collections::HashSet;
 use crate::token::Token;
 
 pub(crate) enum MatchResult {
-    MatchAndConsume,
-    MatchNoConsume,
+    Match(usize),
     NoMatch,
 }
 
 impl MatchResult {
     fn is_success(&self) -> bool {
         match self {
-            Self::MatchAndConsume | Self::MatchNoConsume => true,
+            Self::Match(_) => true,
             Self::NoMatch => false,
         }
     }
@@ -40,7 +39,7 @@ impl Literal {
             Self::Alphanumeric => match token {
                 Some(Token::Char(c)) => {
                     if c.is_ascii_alphanumeric() || c == &'_' {
-                        MatchResult::MatchAndConsume
+                        MatchResult::Match(1)
                     } else {
                         MatchResult::NoMatch
                     }
@@ -50,7 +49,7 @@ impl Literal {
             Self::Char(c) => match token {
                 Some(Token::Char(tc)) => {
                     if tc == c {
-                        MatchResult::MatchAndConsume
+                        MatchResult::Match(1)
                     } else {
                         MatchResult::NoMatch
                     }
@@ -60,7 +59,7 @@ impl Literal {
             Self::Numeric => match token {
                 Some(Token::Char(c)) => {
                     if c.is_ascii_digit() {
-                        MatchResult::MatchAndConsume
+                        MatchResult::Match(1)
                     } else {
                         MatchResult::NoMatch
                     }
@@ -70,7 +69,7 @@ impl Literal {
             Self::Range { start, end } => match token {
                 Some(Token::Char(c)) => {
                     if c >= start && c <= end {
-                        MatchResult::MatchAndConsume
+                        MatchResult::Match(1)
                     } else {
                         MatchResult::NoMatch
                     }
@@ -119,7 +118,7 @@ impl Cond {
     pub(crate) fn is_match(&self, c: Option<&Token>) -> MatchResult {
         match self {
             Self::Char(t) => t.is_match(c),
-            Self::None => MatchResult::MatchNoConsume,
+            Self::None => MatchResult::Match(0),
             Self::CharGroup { chars, is_negated } => match c {
                 Some(Token::Char(c)) => {
                     if chars
@@ -127,7 +126,7 @@ impl Cond {
                         .any(|group_c| group_c.is_match(Some(&Token::Char(*c))).is_success())
                         ^ is_negated
                     {
-                        MatchResult::MatchAndConsume
+                        MatchResult::Match(1)
                     } else {
                         MatchResult::NoMatch
                     }
@@ -135,15 +134,15 @@ impl Cond {
                 _ => MatchResult::NoMatch,
             },
             Self::Start => match c {
-                Some(Token::Start) => MatchResult::MatchAndConsume,
+                Some(Token::Start) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
             Self::End => match c {
-                Some(Token::End) => MatchResult::MatchAndConsume,
+                Some(Token::End) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
             Self::AnyChar => match c {
-                Some(Token::Char(_)) => MatchResult::MatchAndConsume,
+                Some(Token::Char(_)) => MatchResult::Match(1),
                 _ => MatchResult::NoMatch,
             },
         }

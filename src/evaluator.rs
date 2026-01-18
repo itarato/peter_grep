@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::{
+    capturer::Capturer,
     common::{END_STATE, Incrementer},
     cond::MatchResult,
     token::Token,
-    transition::Transition,
+    transition::{CaptureGroupInstruction, Transition},
 };
 
 pub(crate) enum EvalMatchResult {
@@ -47,9 +48,9 @@ impl Evaluator {
         'main_loop: while offset < chars.len() {
             let mut visit_counter: HashMap<u64, u64> = HashMap::new();
             let mut id_provider = Incrementer::new();
-            let mut stack = vec![(&chars[offset..], id_provider.get(), 0u64)];
+            let mut stack = vec![(&chars[offset..], id_provider.get(), 0u64, Capturer::new())];
 
-            while let Some((stream, loop_id, current_state)) = stack.pop() {
+            while let Some((stream, loop_id, current_state, capturer)) = stack.pop() {
                 if current_state == END_STATE {
                     matches.push((offset, chars.len() - stream.len()));
                     // `max(offset + 1)` ensures the scanner is not stuck with valid empty matches.
@@ -77,17 +78,23 @@ impl Evaluator {
                     }
 
                     match tr.cond.is_match(stream.get(0)) {
-                        MatchResult::MatchAndConsume => {
+                        MatchResult::Match(step) => {
                             if tr.max_use.is_some() {
                                 *visit_counter.entry(current_state).or_default() += 1;
                             }
-                            stack.push((&stream[1..], loop_id, tr.to_state));
-                        }
-                        MatchResult::MatchNoConsume => {
-                            if tr.max_use.is_some() {
-                                *visit_counter.entry(current_state).or_default() += 1;
+
+                            let mut new_capturer = capturer.clone();
+                            new_capturer.push(&stream[..step]);
+
+                            match tr.capture_group_ins {
+                                CaptureGroupInstruction::Start(id) => {
+                                    new_capturer.start_capture(id)
+                                }
+                                CaptureGroupInstruction::End(id) => new_capturer.end_capture(id),
+                                CaptureGroupInstruction::None => {}
                             }
-                            stack.push((stream, loop_id, tr.to_state));
+
+                            stack.push((&stream[step..], loop_id, tr.to_state, new_capturer));
                         }
                         MatchResult::NoMatch => {}
                     }

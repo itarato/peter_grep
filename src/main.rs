@@ -1,14 +1,3 @@
-extern crate isatty;
-
-use std::collections::VecDeque;
-use std::fs::read_to_string;
-use std::io;
-use std::process;
-
-use clap::{Parser, ValueEnum};
-use log::error;
-use log::info;
-
 use crate::common::EXIT_CODE_NO_MATCH;
 use crate::common::EXIT_CODE_SUCCESS;
 use crate::common::merge_overlapping_match_ranges;
@@ -17,10 +6,17 @@ use crate::common::range_start_adjust;
 use crate::common::str_to_tokens;
 use crate::evaluator::EvalMatchResult;
 use crate::evaluator::Evaluator;
-
+use clap::{Parser, ValueEnum};
 use isatty::stdout_isatty;
+use log::error;
+use log::info;
+use std::collections::VecDeque;
+use std::fs::read_to_string;
+use std::io;
+use std::process;
 
 mod ast;
+mod capturer;
 mod common;
 mod cond;
 mod evaluator;

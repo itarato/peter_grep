@@ -11,14 +11,58 @@ fn state_id_to_label(id: u64) -> String {
 }
 
 #[derive(Debug)]
+pub(crate) enum CaptureGroupInstruction {
+    Start(u64),
+    End(u64),
+    None,
+}
+
+#[derive(Debug)]
 pub(crate) struct Transition {
     pub(crate) from_state: u64,
     pub(crate) to_state: u64,
     pub(crate) cond: Cond,
     pub(crate) max_use: Option<u64>,
+    pub(crate) capture_group_ins: CaptureGroupInstruction,
 }
 
 impl Transition {
+    pub(crate) fn new_full(
+        from_state: u64,
+        to_state: u64,
+        cond: Cond,
+        max_use: Option<u64>,
+        capture_group_ins: CaptureGroupInstruction,
+    ) -> Self {
+        Self {
+            from_state,
+            to_state,
+            cond,
+            max_use,
+            capture_group_ins,
+        }
+    }
+
+    pub(crate) fn new_cond(from_state: u64, to_state: u64, cond: Cond) -> Self {
+        Self {
+            from_state,
+            to_state,
+            cond,
+            max_use: None,
+            capture_group_ins: CaptureGroupInstruction::None,
+        }
+    }
+
+    pub(crate) fn new(from_state: u64, to_state: u64) -> Self {
+        Self {
+            from_state,
+            to_state,
+            cond: Cond::None,
+            max_use: None,
+            capture_group_ins: CaptureGroupInstruction::None,
+        }
+    }
+
     fn to_label(&self) -> String {
         match self.max_use {
             Some(v) => format!("{} (max {})", self.cond.to_label(), v),

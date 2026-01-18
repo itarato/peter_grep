@@ -1,9 +1,9 @@
 use std::collections::HashSet;
 
 use crate::{
-    common::{END_STATE, START_STATE},
+    common::{END_STATE, Incrementer, START_STATE},
     cond::{Cond, Literal},
-    transition::Transition,
+    transition::{CaptureGroupInstruction, Transition},
 };
 
 #[derive(Debug)]
@@ -11,7 +11,10 @@ pub(crate) enum AstNode {
     Root(Box<AstNode>),
     Char(Literal),
     Seq(Vec<AstNode>),
-    Alt(Vec<AstNode>),
+    Alt {
+        options: Vec<AstNode>,
+        id: u64,
+    },
     Repeat {
         min: Option<u64>,
         max: Option<u64>,
@@ -28,31 +31,26 @@ pub(crate) enum AstNode {
 
 impl AstNode {
     pub(crate) fn generate(&self) -> Vec<Transition> {
-        self.__generate(&mut (END_STATE + 1), START_STATE, END_STATE)
+        let mut id_provider = Incrementer::new_from(END_STATE + 1);
+        self.__generate(&mut id_provider, START_STATE, END_STATE)
     }
 
     fn __generate(
         &self,
-        id_provider: &mut u64,
+        id_provider: &mut Incrementer,
         start_state: u64,
         end_state: u64,
     ) -> Vec<Transition> {
         match self {
             Self::Root(inner) => inner.__generate(id_provider, start_state, end_state),
-            Self::Char(c) => vec![Transition {
-                from_state: start_state,
-                to_state: end_state,
-                cond: Cond::Char(c.clone()),
-                max_use: None,
-            }],
+            Self::Char(c) => vec![Transition::new_cond(
+                start_state,
+                end_state,
+                Cond::Char(c.clone()),
+            )],
             Self::Seq(seq) => {
                 if seq.is_empty() {
-                    vec![Transition {
-                        from_state: start_state,
-                        to_state: end_state,
-                        cond: Cond::None,
-                        max_use: None,
-                    }]
+                    vec![Transition::new(start_state, end_state)]
                 } else {
                     let mut transitions = vec![];
                     let mut from_id = start_state;
@@ -61,8 +59,7 @@ impl AstNode {
                         let to_id = if i + 1 == seq.len() {
                             end_state
                         } else {
-                            *id_provider += 1;
-                            *id_provider - 1
+                            id_provider.get()
                         };
 
                         let mut seq_transitions = seq[i].__generate(id_provider, from_id, to_id);
@@ -74,24 +71,38 @@ impl AstNode {
                     transitions
                 }
             }
-            Self::Alt(alts) => {
+            Self::Alt { options, id } => {
                 let mut transitions = vec![];
 
-                for alt in alts {
-                    let mut alt_transitions = alt.__generate(id_provider, start_state, end_state);
+                let inner_start = id_provider.get();
+                let inner_end = id_provider.get();
+
+                transitions.push(Transition::new_full(
+                    start_state,
+                    inner_start,
+                    Cond::None,
+                    None,
+                    CaptureGroupInstruction::Start(*id),
+                ));
+
+                for alt in options {
+                    let mut alt_transitions = alt.__generate(id_provider, inner_start, inner_end);
                     transitions.append(&mut alt_transitions);
                 }
+
+                transitions.push(Transition::new_full(
+                    inner_end,
+                    end_state,
+                    Cond::None,
+                    None,
+                    CaptureGroupInstruction::End(*id),
+                ));
 
                 transitions
             }
             Self::Repeat { min, max, node } => {
                 if max.map(|v| v == 0).unwrap_or(false) {
-                    return vec![Transition {
-                        from_state: start_state,
-                        to_state: end_state,
-                        cond: Cond::None,
-                        max_use: None,
-                    }];
+                    return vec![Transition::new(start_state, end_state)];
                 }
 
                 if max
@@ -110,27 +121,15 @@ impl AstNode {
                 };
                 let optional_len = max.map(|v| v - req_len - 1);
 
-                let mut inner_start = *id_provider;
-                *id_provider += 1;
-                let mut inner_end = *id_provider;
-                *id_provider += 1;
+                let mut inner_start = id_provider.get();
+                let mut inner_end = id_provider.get();
 
                 // Get to the inner start.
-                transitions.push(Transition {
-                    from_state: start_state,
-                    to_state: inner_start,
-                    cond: Cond::None,
-                    max_use: None,
-                });
+                transitions.push(Transition::new(start_state, inner_start));
 
                 if min == 0 {
                     // Skip - when 0 iter is allowed.
-                    transitions.push(Transition {
-                        from_state: start_state,
-                        to_state: end_state,
-                        cond: Cond::None,
-                        max_use: None,
-                    });
+                    transitions.push(Transition::new(start_state, end_state));
                 }
 
                 for _ in 0..req_len {
@@ -138,59 +137,38 @@ impl AstNode {
                     // Minimum cycle.
                     transitions.append(&mut inner_t);
                     inner_start = inner_end;
-                    inner_end = *id_provider;
-                    *id_provider += 1;
+                    inner_end = id_provider.get();
                 }
 
                 // Repeat transition.
-                transitions.push(Transition {
-                    from_state: inner_end,
-                    to_state: inner_start,
-                    cond: Cond::None,
-                    max_use: optional_len,
-                });
+                transitions.push(Transition::new_full(
+                    inner_end,
+                    inner_start,
+                    Cond::None,
+                    optional_len,
+                    CaptureGroupInstruction::None,
+                ));
 
                 let mut inner_t = node.__generate(id_provider, inner_start, inner_end);
                 // The actual inside graph.
                 transitions.append(&mut inner_t);
 
                 // Get to inner end to end.
-                transitions.push(Transition {
-                    from_state: inner_end,
-                    to_state: end_state,
-                    cond: Cond::None,
-                    max_use: None,
-                });
+                transitions.push(Transition::new(inner_end, end_state));
 
                 transitions
             }
-            Self::Start => vec![Transition {
-                from_state: start_state,
-                to_state: end_state,
-                cond: Cond::Start,
-                max_use: None,
-            }],
-            Self::End => vec![Transition {
-                from_state: start_state,
-                to_state: end_state,
-                cond: Cond::End,
-                max_use: None,
-            }],
-            Self::AnyChar => vec![Transition {
-                from_state: start_state,
-                to_state: end_state,
-                cond: Cond::AnyChar,
-                max_use: None,
-            }],
-            Self::CharGroup { is_negated, chars } => vec![Transition {
-                from_state: start_state,
-                to_state: end_state,
-                cond: Cond::CharGroup {
+            Self::Start => vec![Transition::new_cond(start_state, end_state, Cond::Start)],
+            Self::End => vec![Transition::new_cond(start_state, end_state, Cond::End)],
+            Self::AnyChar => vec![Transition::new_cond(start_state, end_state, Cond::AnyChar)],
+            Self::CharGroup { is_negated, chars } => vec![Transition::new_cond(
+                start_state,
+                end_state,
+                Cond::CharGroup {
                     chars: chars.clone(),
                     is_negated: *is_negated,
                 },
-                max_use: None,
-            }],
+            )],
         }
     }
 }
@@ -205,24 +183,30 @@ mod test {
     #[test]
     fn test_generation() {
         let root = AstNode::Root(Box::new(AstNode::Seq(vec![
-            AstNode::Alt(vec![
-                AstNode::Char(Literal::Char('a')),
-                AstNode::Char(Literal::Char('b')),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('x')),
-                    AstNode::Char(Literal::Char('y')),
-                ]),
-            ]),
-            AstNode::Alt(vec![
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('1')),
-                    AstNode::Char(Literal::Char('1')),
-                ]),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('2')),
-                    AstNode::Char(Literal::Char('2')),
-                ]),
-            ]),
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Char(Literal::Char('a')),
+                    AstNode::Char(Literal::Char('b')),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('x')),
+                        AstNode::Char(Literal::Char('y')),
+                    ]),
+                ],
+                id: 1,
+            },
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('1')),
+                        AstNode::Char(Literal::Char('1')),
+                    ]),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('2')),
+                        AstNode::Char(Literal::Char('2')),
+                    ]),
+                ],
+                id: 2,
+            },
             AstNode::Char(Literal::Char('c')),
         ])));
 
@@ -234,27 +218,33 @@ mod test {
     #[test]
     fn test_complex() {
         let root = AstNode::Root(Box::new(AstNode::Seq(vec![
-            AstNode::Alt(vec![
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('x')),
-                    AstNode::Char(Literal::Char('x')),
-                    AstNode::Char(Literal::Char('1')),
-                ]),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('x')),
-                    AstNode::Char(Literal::Char('x')),
-                ]),
-            ]),
-            AstNode::Alt(vec![
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('1')),
-                    AstNode::Char(Literal::Char('1')),
-                ]),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('2')),
-                    AstNode::Char(Literal::Char('2')),
-                ]),
-            ]),
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('x')),
+                        AstNode::Char(Literal::Char('x')),
+                        AstNode::Char(Literal::Char('1')),
+                    ]),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('x')),
+                        AstNode::Char(Literal::Char('x')),
+                    ]),
+                ],
+                id: 1,
+            },
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('1')),
+                        AstNode::Char(Literal::Char('1')),
+                    ]),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('2')),
+                        AstNode::Char(Literal::Char('2')),
+                    ]),
+                ],
+                id: 2,
+            },
             AstNode::Char(Literal::Char('c')),
         ])));
 
@@ -271,28 +261,34 @@ mod test {
     #[test]
     fn test_repeat() {
         let root = AstNode::Root(Box::new(AstNode::Seq(vec![
-            AstNode::Alt(vec![
-                AstNode::Repeat {
-                    min: Some(0),
-                    max: Some(0),
-                    node: Box::new(AstNode::Char(Literal::Char('a'))),
-                },
-                AstNode::Char(Literal::Char('b')),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('x')),
-                    AstNode::Char(Literal::Char('y')),
-                ]),
-            ]),
-            AstNode::Alt(vec![
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('1')),
-                    AstNode::Char(Literal::Char('1')),
-                ]),
-                AstNode::Seq(vec![
-                    AstNode::Char(Literal::Char('2')),
-                    AstNode::Char(Literal::Char('2')),
-                ]),
-            ]),
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Repeat {
+                        min: Some(0),
+                        max: Some(0),
+                        node: Box::new(AstNode::Char(Literal::Char('a'))),
+                    },
+                    AstNode::Char(Literal::Char('b')),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('x')),
+                        AstNode::Char(Literal::Char('y')),
+                    ]),
+                ],
+                id: 1,
+            },
+            AstNode::Alt {
+                options: vec![
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('1')),
+                        AstNode::Char(Literal::Char('1')),
+                    ]),
+                    AstNode::Seq(vec![
+                        AstNode::Char(Literal::Char('2')),
+                        AstNode::Char(Literal::Char('2')),
+                    ]),
+                ],
+                id: 2,
+            },
             AstNode::Char(Literal::Char('c')),
         ])));
 
@@ -311,7 +307,9 @@ mod test {
     fn test_transition_for_optional() {
         // let ast = Parser::parse_regex_str("x?").unwrap();
         // let ast = Parser::parse_regex_str("ab{2}a").unwrap();
-        let ast = Parser::parse_regex_str("a*").unwrap();
+        // let ast = Parser::parse_regex_str("a*").unwrap();
+        // let ast = Parser::parse_regex_str("a(x|(y|z))b").unwrap();
+        let ast = Parser::parse_regex_str("(\\d+)").unwrap();
         create_dot_file_from_transitions(&ast.generate());
     }
 

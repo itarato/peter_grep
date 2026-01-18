@@ -26,6 +26,10 @@ impl Incrementer {
         Self { v: 0 }
     }
 
+    pub(crate) fn new_from(v: u64) -> Self {
+        Self { v }
+    }
+
     pub(crate) fn get(&mut self) -> u64 {
         self.v += 1;
         self.v - 1

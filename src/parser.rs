@@ -1,6 +1,11 @@
 use std::collections::HashSet;
 
-use crate::{ast::AstNode, common::Error, cond::Literal, reader::Reader};
+use crate::{
+    ast::AstNode,
+    common::{Error, Incrementer},
+    cond::Literal,
+    reader::Reader,
+};
 
 pub(crate) struct Parser;
 
@@ -10,12 +15,16 @@ impl Parser {
     }
 
     fn parse(reader: &mut Reader<'_, char>) -> Result<AstNode, Error> {
-        let seq_node = Self::parse_sequence(reader, |reader| reader.peek().is_none())?;
+        let mut capture_group_id = Incrementer::new_from(1);
+        let seq_node = Self::parse_sequence(reader, &mut capture_group_id, |reader| {
+            reader.peek().is_none()
+        })?;
         Ok(AstNode::Root(Box::new(seq_node)))
     }
 
     fn parse_sequence<FnUntil>(
         reader: &mut Reader<'_, char>,
+        capture_group_id: &mut Incrementer,
         until_pred: FnUntil,
     ) -> Result<AstNode, Error>
     where
@@ -28,25 +37,29 @@ impl Parser {
                 break;
             }
 
-            items.push(Self::parse_unit(reader)?);
+            items.push(Self::parse_unit(reader, capture_group_id)?);
         }
 
         Ok(AstNode::Seq(items))
     }
 
-    fn parse_unit(reader: &mut Reader<'_, char>) -> Result<AstNode, Error> {
+    fn parse_unit(
+        reader: &mut Reader<'_, char>,
+        capture_group_id: &mut Incrementer,
+    ) -> Result<AstNode, Error> {
         match reader.peek() {
             Some(c) => match c {
                 '(' => {
                     reader.assert_pop('(')?;
-                    let mut alts = vec![];
+                    let mut options = vec![];
 
                     loop {
-                        let alt = Self::parse_sequence(reader, |r| match r.peek() {
-                            Some(')') | None | Some('|') => true,
-                            _ => false,
-                        })?;
-                        alts.push(alt);
+                        let alt =
+                            Self::parse_sequence(reader, capture_group_id, |r| match r.peek() {
+                                Some(')') | None | Some('|') => true,
+                                _ => false,
+                            })?;
+                        options.push(alt);
 
                         match reader.peek() {
                             Some(')') => break,
@@ -64,7 +77,13 @@ impl Parser {
 
                     reader.assert_pop(')')?;
 
-                    Ok(Self::check_modifier(reader, AstNode::Alt(alts))?)
+                    Ok(Self::check_modifier(
+                        reader,
+                        AstNode::Alt {
+                            options,
+                            id: capture_group_id.get(),
+                        },
+                    )?)
                 }
                 '[' => {
                     reader.assert_pop('[')?;
